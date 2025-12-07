@@ -3,93 +3,56 @@ import prisma from "../prisma";
 
 const router = Router();
 
-// GET /movements
-router.get("/", async (req, res) => {
-  const limit = Number(req.query.limit) || 50;
-
-  const movements = await prisma.movement.findMany({
-    take: limit,
-    orderBy: { createdAt: "desc" },
-    include: { item: true },
-  });
-
-  res.json(movements);
-});
-
-// POST /movements
-// body: { itemName: string, quantity: number, type: "ADD" | "REMOVE", rawText?: string }
 router.post("/", async (req, res) => {
   try {
-    console.log("📥 /movements body:", req.body);
+    const { itemId, quantity, type } = req.body;
 
-    let { itemName, quantity, type, rawText } = req.body;
-
-    if (!itemName || quantity == null || !type) {
-      return res.status(400).json({ error: "itemName, quantity, type are required" });
+    if (!itemId || !quantity || !type) {
+      return res.status(400).json({ error: "Missing fields" });
     }
 
-    // להבטיח שמספר הוא באמת מספר
-    quantity = Number(quantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      return res.status(400).json({ error: "quantity must be a positive number" });
-    }
-
-    const normalizedType = String(type).toLowerCase(); // "add" | "remove"
-    if (normalizedType !== "add" && normalizedType !== "remove") {
-      return res.status(400).json({ error: "type must be 'add' or 'remove'" });
-    }
-
-    itemName = String(itemName).trim();
-
-    // 1️⃣ למצוא פריט לפי שם
-    let item = await prisma.item.findFirst({
-      where: { name: itemName },
+    const item = await prisma.item.findUnique({
+      where: { id: itemId },
     });
 
-    // 2️⃣ אם לא קיים – ליצור חדש
     if (!item) {
-      console.log("🆕 creating new item:", itemName);
-      item = await prisma.item.create({
-        data: {
-          name: itemName,
-          quantity: 0,
-        },
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    // חישוב כמות חדשה
+    const newQuantity =
+      type === "add" ? item.quantity + quantity : item.quantity - quantity;
+
+    // חסימת כמות שלילית
+    if (newQuantity < 0) {
+      return res.status(400).json({
+        error: "אי אפשר להוריד יותר ממה שקיים במלאי",
+        item: item.name,
+        currentQuantity: item.quantity,
+        requestedRemoval: quantity,
       });
     }
 
-    // 3️⃣ לחשב מלאי חדש
-    const newQuantity =
-      normalizedType === "add"
-        ? item.quantity + quantity
-        : item.quantity - quantity;
-
-    console.log(
-      `🔄 updating stock for ${item.name}: ${item.quantity} -> ${newQuantity}`
-    );
-
+    // עדכון מלאי רק אם תקין
     const updatedItem = await prisma.item.update({
-      where: { id: item.id },
+      where: { id: itemId },
       data: { quantity: newQuantity },
     });
 
-    // 4️⃣ ליצור Movement
-    const movement = await prisma.movement.create({
+    // הוספת תנועת מלאי
+    await prisma.movement.create({
       data: {
-        itemId: item.id,
+        itemId,
         quantity,
-        type: normalizedType,
-        rawText: rawText ?? "",
+        type,
+        rawText: `manual update`,
       },
     });
 
-    return res.status(201).json({
-      message: "Movement created and stock updated",
-      item: updatedItem,
-      movement,
-    });
+    res.json(updatedItem);
   } catch (err) {
-    console.error("❌ Error in POST /movements:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

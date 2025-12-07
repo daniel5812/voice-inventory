@@ -1,4 +1,6 @@
-import api from "./axiosClient";
+import axios from "./axiosClient";
 
-export const processVoiceCommand = (text: string) =>
-  api.post("/voice", { text });
+export async function sendVoiceCommand(text: string) {
+  const response = await axios.post("/voice/command", { text });
+  return response.data;
+}
