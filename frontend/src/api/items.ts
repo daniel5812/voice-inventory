@@ -14,3 +14,7 @@ export const addItem = (id: number, amount = 1) =>
 // ⭐ הורדת כמות מפריט
 export const removeItem = (id: number, amount = 1) =>
   api.post(`/items/${id}/remove`, { amount });
+
+export const deleteItem = (id: number) =>
+  api.delete(`/items/${id}`);
+
