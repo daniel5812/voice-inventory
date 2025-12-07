@@ -1,71 +1,87 @@
 import { Router } from "express";
 import prisma from "../prisma";
-import groqParser from "../services/groqParser";
+import { parseVoiceCommand } from "../services/openaiCommandParser";
 
 const router = Router();
 
 router.post("/command", async (req, res) => {
   try {
     const { text } = req.body;
+    if (!text) return res.status(400).json({ error: "Missing text field" });
 
-    if (!text) {
-      return res.status(400).json({ error: "Missing text field" });
-    }
-
-    // פירוש הפקודה באמצעות גרוק
-    const parsed = await groqParser(text);
+    const parsed = await parseVoiceCommand(text);
     if (!parsed) {
       return res.status(400).json({ error: "Could not parse voice command" });
     }
 
     const { action, quantity, itemName } = parsed;
+    console.log("Parsed Command:", parsed);
 
-    // איתור/יצירת פריט
     let item = await prisma.item.findFirst({
       where: { name: itemName },
     });
 
+    // --- ITEM DOES NOT EXIST: CREATE NEW ---
     if (!item) {
+      const initialQty = action === "remove" ? 0 : quantity;
+
       item = await prisma.item.create({
-        data: { name: itemName, quantity: 0 },
+        data: {
+          name: itemName,
+          quantity: initialQty,
+        },
+      });
+
+      // Log Movement for creation
+      await prisma.movement.create({
+        data: {
+          type: "create",
+          quantity: initialQty,
+          rawText: text,
+          itemId: item.id,
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: `המוצר "${itemName}" נוצר עם כמות ${initialQty}`,
+        item,
       });
     }
 
-    // חישוב כמות חדשה
-    let newQuantity =
-      action === "add" ? item.quantity + quantity : item.quantity - quantity;
+    // --- ITEM EXISTS: UPDATE QUANTITY ---
+    const prevQty = item.quantity;
+    let newQty = prevQty;
 
-    // מניעת כל מצב שבו newQuantity קטן מ־0
-    if (newQuantity < 0) {
-      return res.status(400).json({
-        error: "לא ניתן להוריד יותר מהמלאי הקיים",
-        item: item.name,
-        currentQuantity: item.quantity,
-        attemptedRemoval: quantity
-      });
-    }
+    if (action === "add") newQty = prevQty + quantity;
+    if (action === "remove") newQty = Math.max(0, prevQty - quantity);
+    if (action === "set") newQty = quantity;
 
-    // עדכון פריט — רק אם newQuantity תקין
-    await prisma.item.update({
+    const updated = await prisma.item.update({
       where: { id: item.id },
-      data: { quantity: newQuantity },
-    });
-
-    // יצירת תנועה במלאי
-    await prisma.movement.create({
       data: {
-        itemId: item.id,
-        quantity,
-        type: action,
-        rawText: text,
+        quantity: newQty,
       },
     });
 
-    res.json({ success: true, parsed, newQuantity });
+    // Log Movement
+    await prisma.movement.create({
+      data: {
+        type: action,
+        quantity: action === "remove" ? -quantity : quantity,
+        rawText: text,
+        itemId: item.id,
+      },
+    });
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+    return res.json({
+      success: true,
+      message: `המוצר "${itemName}" עודכן מ-${prevQty} ל-${newQty}`,
+      item: updated,
+    });
+  } catch (error) {
+    console.error("Voice command error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

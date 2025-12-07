@@ -13,7 +13,7 @@ app.use(express.json());
 // ROUTES
 app.use("/items", itemsRouter);
 app.use("/movements", movementsRouter);
-app.use("/voice", voiceRouter);
+app.use("/api/voice", voiceRouter);
 
 // ROOT TEST
 app.get("/", (req, res) => {

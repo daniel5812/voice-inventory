@@ -1,59 +1,98 @@
 import { useEffect, useState, useImperativeHandle } from "react";
 import {
-  Table, Thead, Tbody, Tr, Th, Td,
-  Button, Spinner, Box
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Button,
+  Input,
+  Flex,
 } from "@chakra-ui/react";
-import type{ Item } from "../types/Item";
-import { getItems } from "../api/items";
+import { getItems, addItem, removeItem } from "../api/items";
+import type { Item } from "../types/Item";
 
 interface InventoryTableProps {
   onRefreshRef?: React.MutableRefObject<(() => void) | null>;
+  onAction?: () => void;
 }
 
-const InventoryTable = ({ onRefreshRef }: InventoryTableProps) => {
+const InventoryTable = ({ onRefreshRef, onAction }: InventoryTableProps) => {
   const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [quantities, setQuantities] = useState<Record<number, number>>({});
 
-  const loadItems = async () => {
-    setLoading(true);
+  const load = async () => {
     const res = await getItems();
-    setItems(res.data);
-    setLoading(false);
+    setItems(res.data); // axiosClient always returns {data}
   };
 
   useEffect(() => {
-    loadItems();
+    load();
   }, []);
 
-  useImperativeHandle(onRefreshRef, () => loadItems, []);
+  useImperativeHandle(onRefreshRef, () => load, []);
 
-  if (loading) return <Spinner />;
+  const setQty = (id: number, value: string) => {
+    setQuantities((prev) => ({
+      ...prev,
+      [id]: Number(value),
+    }));
+  };
 
   return (
-    <Box border="1px solid #eee" p={4} borderRadius={6}>
-      <Table variant="simple">
-        <Thead>
-          <Tr>
-            <Th>Item</Th>
-            <Th>Quantity</Th>
-            <Th>Actions</Th>
-          </Tr>
-        </Thead>
+    <Table variant="simple">
+      <Thead>
+        <Tr>
+          <Th>שם הפריט</Th>
+          <Th>כמות</Th>
+          <Th>פעולות</Th>
+        </Tr>
+      </Thead>
 
-        <Tbody>
-          {items.map((item) => (
-            <Tr key={item.id}>
-              <Td>{item.name}</Td>
-              <Td>{item.quantity}</Td>
-              <Td>
-                <Button size="sm" colorScheme="green">Add</Button>
-                <Button size="sm" ml={2} colorScheme="red">Remove</Button>
-              </Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
-    </Box>
+      <Tbody>
+        {items.map((item) => (
+          <Tr key={item.id}>
+            <Td>{item.name}</Td>
+            <Td>{item.quantity}</Td>
+
+            <Td>
+              <Flex gap={2} align="center">
+                <Input
+                  width="70px"
+                  type="number"
+                  placeholder="כמות"
+                  value={quantities[item.id] ?? ""}
+                  onChange={(e) => setQty(item.id, e.target.value)}
+                />
+
+                <Button
+                  colorScheme="green"
+                  onClick={async () => {
+                    const amount = quantities[item.id] || 1;
+                    await addItem(item.id, amount);
+                    if (onAction) onAction();
+                  }}
+                >
+                  ➕
+                </Button>
+
+                <Button
+                  colorScheme="red"
+                  onClick={async () => {
+                    const amount = quantities[item.id] || 1;
+                    await removeItem(item.id, amount);
+                    if (onAction) onAction();
+                  }}
+                >
+                  ➖
+                </Button>
+              </Flex>
+            </Td>
+          </Tr>
+        ))}
+      </Tbody>
+    </Table>
   );
 };
 

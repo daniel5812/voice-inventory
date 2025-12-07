@@ -1,104 +1,63 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { Box, Button, Input, Text, VStack } from "@chakra-ui/react";
+import { sendVoiceCommand } from "../api/voice";
 
 export default function VoiceTester() {
-  const wsRef = useRef<WebSocket | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
-  const [connected, setConnected] = useState(false);
+  const [text, setText] = useState("");
+  const [response, setResponse] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const addLog = (txt: string) =>
-    setLogs((l) => [...l, txt].slice(-50));
+  const handleSend = async () => {
+    if (!text.trim()) return;
 
-  useEffect(() => {
-    // התחברות ל־OpenAI Realtime
-    const ws = new WebSocket(
-      "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview",
-      {
-        headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_KEY}`,
-          "OpenAI-Beta": "realtime=v1",
-        },
-      }
-    );
+    setLoading(true);
+    setError(null);
 
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setConnected(true);
-      addLog("🎤 Connected to Realtime Voice API");
-    };
-
-    ws.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === "response.output_text.delta") {
-        addLog("🤖 Model: " + data.delta);
-      }
-
-      if (data.type === "response.reflection.delta") {
-        addLog("📦 Intent: " + JSON.stringify(data.delta));
-
-        // שליחת ה־intent לשרת שלך
-        await fetch("http://localhost:5000/voice/command", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ intent: data.delta }),
-        });
-      }
-    };
-
-    ws.onerror = (e) => addLog("❌ Error: " + e);
-    ws.onclose = () => addLog("🔌 Disconnected");
-
-    return () => ws.close();
-  }, []);
-
-  // הפעלת מיקרופון
-  const startMic = async () => {
-    if (!wsRef.current) return;
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
-    const processor = audioContext.createScriptProcessor(4096, 1, 1);
-
-    processor.onaudioprocess = (e) => {
-      const input = e.inputBuffer.getChannelData(0);
-      const float32 = new Float32Array(input);
-      wsRef.current?.send(
-        JSON.stringify({
-          type: "input_audio_buffer.append",
-          audio: Array.from(float32),
-        })
-      );
-    };
-
-    source.connect(processor);
-    processor.connect(audioContext.destination);
-
-    addLog("🎙️ Microphone streaming started");
+    try {
+      // משתמשים באותו API כמו VoiceInput – שולחים טקסט גולמי לשרת
+      const res = await sendVoiceCommand(text.trim());
+      setResponse(res);
+    } catch (err) {
+      console.error("Error sending voice command:", err);
+      setError("שגיאה בשליחת הפקודה לשרת");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>🎤 Voice Agent Test</h1>
+    <Box p={6}>
+      <VStack align="stretch" spacing={4}>
+        <Text fontSize="2xl" fontWeight="bold">
+          🎤 Voice Agent Test (דרך השרת)
+        </Text>
+        <Text>
+          כאן אפשר לכתוב פקודה טקסטואלית (במקום דיבור) ולבדוק איך ה-Voice Agent
+          מפרש ומעדכן את המלאי דרך ה-API של השרת.
+        </Text>
 
-      <button
-        disabled={!connected}
-        onClick={startMic}
-        style={{ padding: 10, fontSize: 18 }}
-      >
-        🎙️ התחל הקלטה
-      </button>
+        <Input
+          placeholder="לדוגמה: 'הוסף 3 בקבוקי קולה'..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
 
-      <div style={{ marginTop: 20 }}>
-        <h3>Logs:</h3>
-        <pre style={{ height: 300, overflow: "auto", background: "#eee" }}>
-          {logs.join("\n")}
-        </pre>
-      </div>
-    </div>
+        <Button onClick={handleSend} isLoading={loading} colorScheme="blue">
+          שלח פקודה לשרת
+        </Button>
+
+        {error && <Text color="red.500">{error}</Text>}
+
+        {response && (
+          <Box mt={4} p={4} borderWidth="1px" borderRadius="md">
+            <Text fontWeight="bold">תשובת שרת:</Text>
+            <pre style={{ whiteSpace: "pre-wrap" }}>
+              {JSON.stringify(response, null, 2)}
+            </pre>
+          </Box>
+        )}
+      </VStack>
+    </Box>
   );
 }

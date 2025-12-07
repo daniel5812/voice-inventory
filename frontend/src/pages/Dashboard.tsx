@@ -1,35 +1,33 @@
-import { Box, Flex, Heading, useToast } from "@chakra-ui/react";
+import { Box, Flex, Heading } from "@chakra-ui/react";
 import { useRef } from "react";
 import InventoryTable from "../components/InventoryTable";
-import RecentMovements from "../components/RecentMovements";
+import ActionHistory from "../components/ActionHistory";
 import VoiceInput from "../components/voiceInput";
 
 const Dashboard = () => {
   const inventoryRefreshRef = useRef<(() => void) | null>(null);
-  const movementsRefreshRef = useRef<(() => void) | null>(null);
+  const historyRefreshRef = useRef<(() => void) | null>(null);
 
-  const handleVoiceSuccess = () => {
-    // Refresh both inventory and movements after voice command
-    if (inventoryRefreshRef.current) {
-      inventoryRefreshRef.current();
-    }
-    if (movementsRefreshRef.current) {
-      movementsRefreshRef.current();
-    }
+  const handleSuccess = () => {
+    if (inventoryRefreshRef.current) inventoryRefreshRef.current();
+    if (historyRefreshRef.current) historyRefreshRef.current();
   };
 
   return (
     <Box p={6}>
       <Heading mb={6}>Inventory Dashboard</Heading>
-      <VoiceInput onSuccess={handleVoiceSuccess} />
+      <VoiceInput onSuccess={handleSuccess} />
 
       <Flex gap={6} direction={{ base: "column", md: "row" }}>
         <Box flex="2">
-          <InventoryTable onRefreshRef={inventoryRefreshRef} />
+          <InventoryTable
+            onRefreshRef={inventoryRefreshRef}
+            onAction={handleSuccess}
+          />
         </Box>
 
         <Box flex="1">
-          <RecentMovements onRefreshRef={movementsRefreshRef} />
+          <ActionHistory onRefreshRef={historyRefreshRef} />
         </Box>
       </Flex>
     </Box>
