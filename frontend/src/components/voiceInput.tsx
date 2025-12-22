@@ -19,13 +19,11 @@ export default function VoiceInput({ onSuccess }: { onSuccess?: () => void }) {
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "he-IL"; // עברית
+    recognition.lang = "he-IL";
     recognition.continuous = false;
     recognition.interimResults = false;
 
-    recognition.onstart = () => {
-      setListening(true);
-    };
+    recognition.onstart = () => setListening(true);
 
     recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript.trim();
@@ -33,7 +31,6 @@ export default function VoiceInput({ onSuccess }: { onSuccess?: () => void }) {
       console.log("🎤 Heard:", transcript);
 
       try {
-        // שולח את הטקסט המקורי לשרת
         const result = await sendVoiceCommand(transcript);
 
         if (result.success) {
@@ -47,7 +44,7 @@ export default function VoiceInput({ onSuccess }: { onSuccess?: () => void }) {
           if (onSuccess) onSuccess();
         } else {
           toast({
-            title: "לא הצלחתי להבין את הפקודה 😕",
+            title: "לא הצלחתי להבין 😕",
             description: result.error || transcript,
             status: "warning",
             duration: 3000,
@@ -61,14 +58,17 @@ export default function VoiceInput({ onSuccess }: { onSuccess?: () => void }) {
           duration: 3000,
         });
       }
+
+      // 🧼 מנקה טקסט תמיד — גם בהצלחה, גם בכישלון
+      setLastCommand("");
     };
 
-    recognition.onerror = () => {
-      setListening(false);
-    };
+    recognition.onerror = () => setListening(false);
 
     recognition.onend = () => {
       setListening(false);
+      // ביטוח: גם אם אין תוצאה → לנקות אחרי סיום האזנה
+      setLastCommand("");
     };
 
     recognition.start();

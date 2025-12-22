@@ -1,19 +1,50 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import VoiceTester from "./pages/VoiceTester";
+import RequireAuth from "./components/RequireAuth";
+import PublicOnly from "./components/PublicOnly";
+import Layout from "./components/AppLayout";
 
-function App() {
+// Pages
+import Dashboard from "./pages/Dashboard";
+import InventoryPage from "./pages/Inventory";
+import LoginPage from "./pages/Login";
+import RegisterPage from "./pages/Register";
+
+export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* דף הבית */}
-        <Route path="/" element={<Dashboard />} />
+        {/* דפים ציבוריים – רק למנותקים */}
+        <Route
+          path="/login"
+          element={
+            <PublicOnly>
+              <LoginPage />
+            </PublicOnly>
+          }
+        />
 
-        {/* מסך בדיקת פקודות קוליות */}
-        <Route path="/voice-test" element={<VoiceTester />} />
+        <Route
+          path="/register"
+          element={
+            <PublicOnly>
+              <RegisterPage />
+            </PublicOnly>
+          }
+        />
+
+        {/* דפים מוגנים */}
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <Layout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="inventory" element={<InventoryPage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
 }
-
-export default App;
