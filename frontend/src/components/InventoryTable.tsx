@@ -18,48 +18,24 @@ import {
   useToast,
 } from "@chakra-ui/react";
 
-import { useEffect, useState, useImperativeHandle, useRef } from "react";
-
-import { getItems, addItem, removeItem, deleteItem } from "../api/items";
+import { useMemo, useRef, useState } from "react";
+import { addItem, removeItem, deleteItem } from "../api/items";
 import type { Item } from "../types/Item";
-
 import { FiPlus, FiMinus, FiTrash2 } from "react-icons/fi";
+import { useInventory } from "../context/InventoryContext";
 
 interface InventoryTableProps {
   search?: string;
-  onRefreshRef?: React.MutableRefObject<(() => void) | null>;
-  onAction?: () => void;
 }
 
-const InventoryTable = ({ search = "", onRefreshRef, onAction }: InventoryTableProps) => {
+const InventoryTable = ({ search = "" }: InventoryTableProps) => {
   const toast = useToast();
+  const { items, loading, refreshAll } = useInventory();
 
-  const [items, setItems] = useState<Item[]>([]);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
-  // ---------------------------------------------------------
-  // Load Items
-  // ---------------------------------------------------------
-  const load = async () => {
-    try {
-      const res = await getItems();
-      setItems(res.data || []);
-    } catch (err) {
-      console.error("Failed loading items:", err);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  useImperativeHandle(onRefreshRef, () => load, [load]);
-
-  // ---------------------------------------------------------
-  // Set quantity input per item
-  // ---------------------------------------------------------
   const setQty = (id: number, val: string) => {
     setQuantities((prev) => ({
       ...prev,
@@ -67,16 +43,12 @@ const InventoryTable = ({ search = "", onRefreshRef, onAction }: InventoryTableP
     }));
   };
 
-  // ---------------------------------------------------------
-  // Filter by search
-  // ---------------------------------------------------------
-  const filteredItems = items.filter((i) =>
-    i.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((i) => i.name.toLowerCase().includes(q));
+  }, [items, search]);
 
-  // ---------------------------------------------------------
-  // UI
-  // ---------------------------------------------------------
   return (
     <>
       <Box bg="white" p={4} borderRadius="lg" shadow="sm">
@@ -93,12 +65,10 @@ const InventoryTable = ({ search = "", onRefreshRef, onAction }: InventoryTableP
             {filteredItems.map((item) => (
               <Tr key={item.id}>
                 <Td>{item.name}</Td>
-
                 <Td>{item.quantity}</Td>
 
                 <Td>
                   <Flex gap={3} align="center">
-                    {/* קלט כמות */}
                     <Input
                       width="75px"
                       type="number"
@@ -107,37 +77,44 @@ const InventoryTable = ({ search = "", onRefreshRef, onAction }: InventoryTableP
                       onChange={(e) => setQty(item.id, e.target.value)}
                     />
 
-                    {/* הוספה */}
                     <Button
                       size="sm"
                       colorScheme="green"
                       leftIcon={<FiPlus />}
+                      isLoading={loading}
                       onClick={async () => {
                         const amount = quantities[item.id] || 1;
                         await addItem(item.id, amount);
-                        toast({ title: "נוסף למלאי", status: "success", duration: 1500 });
-                        if (onAction) onAction();
+                        toast({
+                          title: "נוסף למלאי",
+                          status: "success",
+                          duration: 1500,
+                        });
+                        await refreshAll();
                       }}
                     >
                       הוסף
                     </Button>
 
-                    {/* הורדה */}
                     <Button
                       size="sm"
                       colorScheme="red"
                       leftIcon={<FiMinus />}
+                      isLoading={loading}
                       onClick={async () => {
                         const amount = quantities[item.id] || 1;
                         await removeItem(item.id, amount);
-                        toast({ title: "הוסר מהמלאי", status: "info", duration: 1500 });
-                        if (onAction) onAction();
+                        toast({
+                          title: "הוסר מהמלאי",
+                          status: "info",
+                          duration: 1500,
+                        });
+                        await refreshAll();
                       }}
                     >
                       הורד
                     </Button>
 
-                    {/* מחיקה */}
                     <Button
                       size="sm"
                       variant="outline"
@@ -152,7 +129,7 @@ const InventoryTable = ({ search = "", onRefreshRef, onAction }: InventoryTableP
               </Tr>
             ))}
 
-            {filteredItems.length === 0 && (
+            {!loading && filteredItems.length === 0 && (
               <Tr>
                 <Td colSpan={3} style={{ textAlign: "center", padding: "20px" }}>
                   לא נמצאו פריטים
@@ -163,9 +140,6 @@ const InventoryTable = ({ search = "", onRefreshRef, onAction }: InventoryTableP
         </Table>
       </Box>
 
-      {/* ---------------------------------------------------------
-          Delete Confirm Dialog
-      --------------------------------------------------------- */}
       {deleteTarget && (
         <AlertDialog
           isOpen={true}
@@ -194,9 +168,13 @@ const InventoryTable = ({ search = "", onRefreshRef, onAction }: InventoryTableP
                   ml={3}
                   onClick={async () => {
                     await deleteItem(deleteTarget.id);
-                    toast({ title: "פריט נמחק", status: "warning", duration: 1500 });
+                    toast({
+                      title: "פריט נמחק",
+                      status: "warning",
+                      duration: 1500,
+                    });
                     setDeleteTarget(null);
-                    if (onAction) onAction();
+                    await refreshAll();
                   }}
                 >
                   מחיקה

@@ -13,8 +13,8 @@
   "license": "ISC",
   "dependencies": {
     "@openai/agents": "^0.3.4",
-    "@prisma/adapter-pg": "^7.0.1",
-    "@prisma/client": "^7.2.0",
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^6.7.0",
     "@supabase/supabase-js": "^2.86.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -32,7 +32,7 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
     "@types/pg": "^8.15.6",
-    "prisma": "^7.2.0",
+    "prisma": "^6.7.0",
     "supabase": "^2.64.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"

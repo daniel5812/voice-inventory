@@ -4,41 +4,38 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model UserProfile {
-  id        String     @id        // ← auth.users.id (UUID)
+  id        String   @id
   email     String
   fullName  String?
-  createdAt DateTime   @default(now())
+  createdAt DateTime @default(now())
 
   items     Item[]
   movements Movement[]
 }
 
 model Item {
-  id        Int        @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   name      String
-  quantity  Int        @default(0)
-
+  quantity  Int
   userId    String
-  user      UserProfile @relation(fields: [userId], references: [id])
 
+  user      UserProfile @relation(fields: [userId], references: [id])
   movements Movement[]
 }
-
 
 model Movement {
   id        Int      @id @default(autoincrement())
   itemId    Int
   userId    String
-
   type      String
   quantity  Int
   rawText   String
   createdAt DateTime @default(now())
 
-  item      Item        @relation(fields: [itemId], references: [id])
-  user      UserProfile @relation(fields: [userId], references: [id])
+  item Item        @relation(fields: [itemId], references: [id])
+  user UserProfile @relation(fields: [userId], references: [id])
 }
-

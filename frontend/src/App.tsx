@@ -3,7 +3,6 @@ import RequireAuth from "./components/RequireAuth";
 import PublicOnly from "./components/PublicOnly";
 import Layout from "./components/AppLayout";
 
-// Pages
 import Dashboard from "./pages/Dashboard";
 import InventoryPage from "./pages/Inventory";
 import LoginPage from "./pages/Login";
@@ -13,7 +12,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* דפים ציבוריים – רק למנותקים */}
+        {/* ציבורי */}
         <Route
           path="/login"
           element={
@@ -32,7 +31,7 @@ export default function App() {
           }
         />
 
-        {/* דפים מוגנים */}
+        {/* מוגן */}
         <Route
           path="/"
           element={

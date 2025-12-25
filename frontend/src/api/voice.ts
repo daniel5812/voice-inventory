@@ -1,21 +1,14 @@
-// frontend/src/api/voice.ts
-export async function sendVoiceCommand(text: string) {
-  const response = await fetch("http://localhost:5000/api/voice/command", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ text }),
-  });
+import api from "./axiosClient";
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
+export async function sendVoiceCommand(text: string) {
+  try {
+    const response = await api.post("/voice/command", { text });
+    return response.data;
+  } catch (error: any) {
+    console.error("Voice command error:", error);
     return {
       success: false,
-      message: error.error || "Server error",
+      message: error.response?.data?.error || "Server error",
     };
   }
-
-  const data = await response.json();
-  return data; // מכיל success, message וכו'
 }

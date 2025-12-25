@@ -9,73 +9,93 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-// פונקציה שמתחברת למודל בזמן אמת
-export function startVoiceAgent() {
+/**
+ * מפעיל Voice Agent עבור משתמש מסוים
+ */
+export function startVoiceAgent(userId: string) {
   const ws = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview",
     {
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "OpenAI-Beta": "realtime=v1",
-      }
+      },
     }
   );
 
   ws.on("open", () => {
-    console.log("🔊 Voice Agent connected to OpenAI Realtime API");
+    console.log("🔊 Voice Agent connected for user:", userId);
   });
 
   ws.on("message", async (msg) => {
     try {
       const data = JSON.parse(msg.toString());
 
-      // מחפשים Event של Intent
       if (data.type === "response.output_text.delta") {
         console.log("🗣️ MODEL SAID:", data.delta);
       }
 
       if (data.type === "response.reflection.delta") {
-        // כאן נמצא ה־Intent המעובד
         const reflection = data.delta;
-        console.log("INTENT RECEIVED:", reflection);
 
         const action = reflection.action;
-        const item = reflection.itemName;
+        const itemName = reflection.itemName;
         const quantity = reflection.quantity;
+        const originalText = reflection.originalText;
 
-        if (!action || !item || !quantity) return;
+        if (!action || !itemName || !quantity) return;
 
-        // עדכון מלאי
-        let dbItem = await prisma.item.findFirst({ where: { name: item } });
+        // חיפוש פריט של המשתמש בלבד
+        let item = await prisma.item.findFirst({
+          where: {
+            name: itemName,
+            userId,
+          },
+        });
 
-        if (!dbItem) {
-          dbItem = await prisma.item.create({
-            data: { name: item, quantity: 0 },
+        if (!item) {
+          item = await prisma.item.create({
+            data: {
+              name: itemName,
+              quantity: 0,
+              userId,
+            },
+          });
+
+          await prisma.movement.create({
+            data: {
+              itemId: item.id,
+              userId,
+              type: "create",
+              quantity: 0,
+              rawText: originalText,
+            },
           });
         }
 
         let newQuantity =
           action === "add"
-            ? dbItem.quantity + quantity
-            : dbItem.quantity - quantity;
+            ? item.quantity + quantity
+            : Math.max(0, item.quantity - quantity);
 
-        if (newQuantity < 0) newQuantity = 0;
-
-        await prisma.item.update({
-          where: { id: dbItem.id },
+        const updated = await prisma.item.update({
+          where: { id: item.id },
           data: { quantity: newQuantity },
         });
 
         await prisma.movement.create({
           data: {
-            itemId: dbItem.id,
-            quantity,
+            itemId: item.id,
+            userId,
             type: action,
-            rawText: reflection.originalText,
+            quantity: action === "remove" ? -quantity : quantity,
+            rawText: originalText,
           },
         });
 
-        console.log(`Inventory updated: ${action} ${quantity} ${item}`);
+        console.log(
+          `📦 [${userId}] Inventory updated: ${action} ${quantity} ${itemName}`
+        );
       }
     } catch (err) {
       console.error("Error parsing agent message:", err);

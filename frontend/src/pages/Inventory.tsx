@@ -1,15 +1,9 @@
 import { Box, Heading, Input } from "@chakra-ui/react";
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import InventoryTable from "../components/InventoryTable";
 
 export default function InventoryPage() {
   const [search, setSearch] = useState("");
-  const tableRefreshRef = useRef<(() => void) | null>(null);
-
-  const handleAction = useCallback(() => {
-    tableRefreshRef.current?.();
-  }, []);
-
   return (
     <Box>
       <Heading mb={6}>Inventory</Heading>
@@ -26,11 +20,8 @@ export default function InventoryPage() {
         shadow="sm"
       />
 
-      <InventoryTable
-        search={search}
-        onRefreshRef={tableRefreshRef}
-        onAction={handleAction}
-      />
+      <InventoryTable search={search} />
+
     </Box>
   );
 }

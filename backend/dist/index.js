@@ -8,13 +8,20 @@ const cors_1 = __importDefault(require("cors"));
 const items_1 = __importDefault(require("./routes/items"));
 const movements_1 = __importDefault(require("./routes/movements"));
 const voice_1 = __importDefault(require("./routes/voice"));
-const openaiVoiceAgent_1 = require("./services/openaiVoiceAgent");
+const voiceAgent_1 = __importDefault(require("./routes/voiceAgent"));
+const dotenv_1 = __importDefault(require("dotenv"));
+const path_1 = __importDefault(require("path"));
+const envPath = path_1.default.resolve(__dirname, "../.env");
+console.log("ENV PATH =", envPath);
+dotenv_1.default.config({ path: envPath });
+console.log("DATABASE_URL =", process.env.DATABASE_URL);
+console.log("ALL ENV KEYS =", Object.keys(process.env));
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 // ROUTES
-app.use("/items", items_1.default);
-app.use("/movements", movements_1.default);
+app.use("/api/items", items_1.default);
+app.use("/api/movements", movements_1.default);
 app.use("/api/voice", voice_1.default);
 // ROOT TEST
 app.get("/", (req, res) => {
@@ -22,7 +29,7 @@ app.get("/", (req, res) => {
 });
 const PORT = process.env.PORT || 5000;
 // 🔥 הפעלת מודל הקול של OpenAI כאשר השרת עולה
-(0, openaiVoiceAgent_1.startVoiceAgent)();
+app.use("/voice-agent", voiceAgent_1.default);
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

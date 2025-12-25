@@ -2,17 +2,16 @@
 // src/pages/Dashboard.tsx  — גרסה נקייה ומתוקנת
 // -------------------------------------------------------------
 
-import { Box, Flex, Heading, Text } from "@chakra-ui/react";
-import { useRef, useCallback, useEffect, useState } from "react";
+import { Box, Flex, Heading } from "@chakra-ui/react";
+import { useCallback, useEffect, useState } from "react";
 
+import { useRealtime } from "../hooks/useRealtime";
 import InventoryTable from "../components/InventoryTable";
 import ActionHistory from "../components/ActionHistory";
 import KpiCard from "../components/KpiCard";
 import { getItems } from "../api/items";
 
 const Dashboard = () => {
-  const inventoryRefreshRef = useRef<(() => void) | null>(null);
-  const historyRefreshRef = useRef<(() => void) | null>(null);
 
   const [items, setItems] = useState<any[]>([]);
 
@@ -26,15 +25,12 @@ const Dashboard = () => {
     }
   }, []);
 
-  const handleSuccess = useCallback(() => {
-    inventoryRefreshRef.current?.();
-    historyRefreshRef.current?.();
-    loadItemsForStats();
-  }, [loadItemsForStats]);
 
   useEffect(() => {
     loadItemsForStats();
   }, [loadItemsForStats]);
+
+  useRealtime(loadItemsForStats);
 
   // ---- KPI Calculations ----
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -65,15 +61,12 @@ const Dashboard = () => {
       >
         {/* Inventory Table */}
         <Box flex="2">
-          <InventoryTable
-            onRefreshRef={inventoryRefreshRef}
-            onAction={handleSuccess}
-          />
+          <InventoryTable />
         </Box>
 
         {/* Activity Log */}
         <Box flex="1">
-          <ActionHistory onRefreshRef={historyRefreshRef} />
+          <ActionHistory />
         </Box>
       </Flex>
     </Box>

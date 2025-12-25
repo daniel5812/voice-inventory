@@ -5,15 +5,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = __importDefault(require("../prisma"));
+const requireUser_1 = require("../middlewares/requireUser");
 const router = (0, express_1.Router)();
 /*
 =========================================
-   GET /items  – שליפת כל הפריטים
+   GET /items – שליפת פריטים של המשתמש
 =========================================
 */
-router.get("/", async (req, res) => {
+router.get("/", requireUser_1.requireUser, async (req, res) => {
     try {
         const items = await prisma_1.default.item.findMany({
+            where: {
+                userId: req.user.id,
+            },
             orderBy: { id: "asc" },
         });
         res.json(items);
@@ -25,22 +29,26 @@ router.get("/", async (req, res) => {
 });
 /*
 =========================================
-   POST /items  – יצירת פריט חדש
+   POST /items – יצירת פריט חדש
 =========================================
 */
-router.post("/", async (req, res) => {
+router.post("/", requireUser_1.requireUser, async (req, res) => {
     const { name, quantity } = req.body;
     if (!name || quantity == null) {
         return res.status(400).json({ error: "name and quantity are required" });
     }
     try {
         const item = await prisma_1.default.item.create({
-            data: { name, quantity },
+            data: {
+                name,
+                quantity,
+                userId: req.user.id, // ⭐ השיוך הקריטי
+            },
         });
-        // יצירת תנועה מסוג CREATE
         await prisma_1.default.movement.create({
             data: {
                 itemId: item.id,
+                userId: req.user.id,
                 type: "create",
                 quantity,
                 rawText: "manual create",
@@ -55,29 +63,38 @@ router.post("/", async (req, res) => {
 });
 /*
 =========================================
-   POST /items/:id/add  – הוספת כמות
+   POST /items/:id/add – הוספת כמות
 =========================================
 */
-router.post("/:id/add", async (req, res) => {
+router.post("/:id/add", requireUser_1.requireUser, async (req, res) => {
     const id = Number(req.params.id);
     const { amount } = req.body;
     if (!amount || amount <= 0) {
         return res.status(400).json({ error: "invalid amount" });
     }
     try {
-        const item = await prisma_1.default.item.update({
-            where: { id },
-            data: { quantity: { increment: amount } },
+        const item = await prisma_1.default.item.updateMany({
+            where: {
+                id,
+                userId: req.user.id, // 🔐 מגן על פריטים של אחרים
+            },
+            data: {
+                quantity: { increment: amount },
+            },
         });
+        if (item.count === 0) {
+            return res.status(404).json({ error: "Item not found" });
+        }
         await prisma_1.default.movement.create({
             data: {
                 itemId: id,
+                userId: req.user.id,
                 type: "add",
                 quantity: amount,
                 rawText: `manual add ${amount}`,
             },
         });
-        res.json(item);
+        res.json({ success: true });
     }
     catch (e) {
         console.error("ADD item error:", e);
@@ -86,19 +103,25 @@ router.post("/:id/add", async (req, res) => {
 });
 /*
 =========================================
-   POST /items/:id/remove  – הורדת כמות
+   POST /items/:id/remove – הורדת כמות
 =========================================
 */
-router.post("/:id/remove", async (req, res) => {
+router.post("/:id/remove", requireUser_1.requireUser, async (req, res) => {
     const id = Number(req.params.id);
     const { amount } = req.body;
     if (!amount || amount <= 0) {
         return res.status(400).json({ error: "invalid amount" });
     }
     try {
-        const item = await prisma_1.default.item.findUnique({ where: { id } });
-        if (!item)
+        const item = await prisma_1.default.item.findFirst({
+            where: {
+                id,
+                userId: req.user.id,
+            },
+        });
+        if (!item) {
             return res.status(404).json({ error: "Item not found" });
+        }
         const newQty = Math.max(0, item.quantity - amount);
         const updated = await prisma_1.default.item.update({
             where: { id },
@@ -107,8 +130,9 @@ router.post("/:id/remove", async (req, res) => {
         await prisma_1.default.movement.create({
             data: {
                 itemId: id,
+                userId: req.user.id,
                 type: "remove",
-                quantity: -amount, // נשמור כמות שלילית בלוג
+                quantity: -amount,
                 rawText: `manual remove ${amount}`,
             },
         });
@@ -121,20 +145,27 @@ router.post("/:id/remove", async (req, res) => {
 });
 /*
 =========================================
-   DELETE /items/:id  – מחיקת פריט מלא
+   DELETE /items/:id – מחיקת פריט
 =========================================
 */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireUser_1.requireUser, async (req, res) => {
     const id = Number(req.params.id);
     try {
-        // מחיקה של כל התנועות של הפריט
         await prisma_1.default.movement.deleteMany({
-            where: { itemId: id },
+            where: {
+                itemId: id,
+                userId: req.user.id,
+            },
         });
-        // מחיקה של המוצר עצמו
-        await prisma_1.default.item.delete({
-            where: { id },
+        const deleted = await prisma_1.default.item.deleteMany({
+            where: {
+                id,
+                userId: req.user.id,
+            },
         });
+        if (deleted.count === 0) {
+            return res.status(404).json({ error: "Item not found" });
+        }
         res.json({ success: true });
     }
     catch (e) {
