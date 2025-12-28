@@ -9,9 +9,12 @@ const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   const { data } = await supabase.auth.getSession();
-  if (data.session?.access_token) {
-    config.headers.Authorization = `Bearer ${data.session.access_token}`;
+  const token = data.session?.access_token;
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
+
   return config;
 });
 

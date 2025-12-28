@@ -19,9 +19,8 @@ import {
 } from "@chakra-ui/react";
 
 import { useMemo, useRef, useState } from "react";
-import { addItem, removeItem, deleteItem } from "../api/items";
-import type { Item } from "../types/Item";
 import { FiPlus, FiMinus, FiTrash2 } from "react-icons/fi";
+import type { Item } from "../types/Item";
 import { useInventory } from "../context/InventoryContext";
 
 interface InventoryTableProps {
@@ -30,11 +29,14 @@ interface InventoryTableProps {
 
 const InventoryTable = ({ search = "" }: InventoryTableProps) => {
   const toast = useToast();
-  const { items, loading, refreshAll } = useInventory();
+
+  const { items, loading, add, remove, removeItem } = useInventory();
 
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+
+  /* ---------- helpers ---------- */
 
   const setQty = (id: number, val: string) => {
     setQuantities((prev) => ({
@@ -48,6 +50,8 @@ const InventoryTable = ({ search = "" }: InventoryTableProps) => {
     if (!q) return items;
     return items.filter((i) => i.name.toLowerCase().includes(q));
   }, [items, search]);
+
+  /* ---------- UI ---------- */
 
   return (
     <>
@@ -77,6 +81,7 @@ const InventoryTable = ({ search = "" }: InventoryTableProps) => {
                       onChange={(e) => setQty(item.id, e.target.value)}
                     />
 
+                    {/* הוספה */}
                     <Button
                       size="sm"
                       colorScheme="green"
@@ -84,18 +89,18 @@ const InventoryTable = ({ search = "" }: InventoryTableProps) => {
                       isLoading={loading}
                       onClick={async () => {
                         const amount = quantities[item.id] || 1;
-                        await addItem(item.id, amount);
+                        await add(item.id, amount);
                         toast({
                           title: "נוסף למלאי",
                           status: "success",
                           duration: 1500,
                         });
-                        await refreshAll();
                       }}
                     >
                       הוסף
                     </Button>
 
+                    {/* הורדה */}
                     <Button
                       size="sm"
                       colorScheme="red"
@@ -103,18 +108,18 @@ const InventoryTable = ({ search = "" }: InventoryTableProps) => {
                       isLoading={loading}
                       onClick={async () => {
                         const amount = quantities[item.id] || 1;
-                        await removeItem(item.id, amount);
+                        await remove(item.id, amount);
                         toast({
                           title: "הוסר מהמלאי",
                           status: "info",
                           duration: 1500,
                         });
-                        await refreshAll();
                       }}
                     >
                       הורד
                     </Button>
 
+                    {/* מחיקה */}
                     <Button
                       size="sm"
                       variant="outline"
@@ -140,9 +145,10 @@ const InventoryTable = ({ search = "" }: InventoryTableProps) => {
         </Table>
       </Box>
 
+      {/* ---------- Delete dialog ---------- */}
       {deleteTarget && (
         <AlertDialog
-          isOpen={true}
+          isOpen
           leastDestructiveRef={cancelRef}
           onClose={() => setDeleteTarget(null)}
         >
@@ -167,14 +173,13 @@ const InventoryTable = ({ search = "" }: InventoryTableProps) => {
                   colorScheme="red"
                   ml={3}
                   onClick={async () => {
-                    await deleteItem(deleteTarget.id);
+                    await removeItem(deleteTarget.id);
                     toast({
                       title: "פריט נמחק",
                       status: "warning",
                       duration: 1500,
                     });
                     setDeleteTarget(null);
-                    await refreshAll();
                   }}
                 >
                   מחיקה

@@ -16,7 +16,6 @@ model UserProfile {
   items     Item[]
   movements Movement[]
 }
-
 model Item {
   id        Int      @id @default(autoincrement())
   name      String

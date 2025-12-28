@@ -8,6 +8,7 @@ type AuthUser = {
 
 type AuthContextType = {
   user: AuthUser | null;
+  accessToken: string | null;
   loading: boolean;
   logout: () => Promise<void>;
 };
@@ -16,21 +17,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // בדיקה ראשונית
+    // טעינה ראשונית
     supabase.auth.getSession().then(({ data }) => {
       if (data.session?.user) {
         setUser({
           id: data.session.user.id,
           email: data.session.user.email!,
         });
+        setAccessToken(data.session.access_token);
       }
       setLoading(false);
     });
 
-    // האזנה לשינויים
+    // האזנה לשינויים (login / logout / refresh)
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user) {
@@ -38,8 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: session.user.id,
             email: session.user.email!,
           });
+          setAccessToken(session.access_token);
         } else {
           setUser(null);
+          setAccessToken(null);
         }
       }
     );
@@ -51,10 +56,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    setUser(null);
+    setAccessToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout }}>
+    <AuthContext.Provider value={{ user, accessToken, loading, logout }}>
       {children}
     </AuthContext.Provider>
   );

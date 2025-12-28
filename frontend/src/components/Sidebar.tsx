@@ -61,6 +61,14 @@ import {
               active={location.pathname === "/activity"}
             />
           </NavLink>
+
+          <NavLink to="/profile">
+            <SidebarItem
+              icon={FiActivity}
+              label="Profile"
+              active={location.pathname === "/profile"}
+            />
+          </NavLink>
         </VStack>
   
         <Divider my={6} />

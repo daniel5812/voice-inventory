@@ -30,6 +30,8 @@ const ActionHistory = () => {
         <Flex justify="center" py={4}>
           <Spinner />
         </Flex>
+      ) : movements.length === 0 ? (
+        <Text color="gray.500">אין פעולות להצגה</Text>
       ) : (
         <VStack align="start" spacing={3}>
           {movements.map((m) => (

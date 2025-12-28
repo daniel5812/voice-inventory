@@ -2,24 +2,25 @@ import { Outlet } from "react-router-dom";
 import { Box, Flex, Text, Button } from "@chakra-ui/react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-import { useAuth } from "../context/AuthContext";
+import { useCurrentUser } from "../hooks/useCurrentUser";
+
 
 const SIDEBAR_WIDTH = "260px";
 
+
+
 export default function AppLayout() {
-  const { user, logout } = useAuth();
+  const { displayName, logout, loading } = useCurrentUser();
+  if (loading) return null;
+
 
   return (
     <Box minH="100vh" bg="gray.50">
-      {/* Sidebar */}
       <Sidebar />
 
-      {/* אזור התוכן */}
       <Box ml={SIDEBAR_WIDTH}>
-        {/* Header קיים שלך */}
         <Header />
 
-        {/* User Debug Bar – קריטי להפרדה בין פרופילים */}
         <Flex
           px={8}
           py={3}
@@ -29,12 +30,8 @@ export default function AppLayout() {
           justify="space-between"
           align="center"
         >
-          <Text fontSize="sm">
-            מחובר כ: <b>{user?.email}</b>
-            <br />
-            <Text as="span" fontSize="xs" color="gray.500">
-              user_id: {user?.id}
-            </Text>
+          <Text fontSize="sm" color="gray.600">
+            Connected as: <strong>{displayName}</strong>
           </Text>
 
           <Button
@@ -43,11 +40,10 @@ export default function AppLayout() {
             variant="outline"
             onClick={logout}
           >
-            התנתק
+            Logout
           </Button>
         </Flex>
 
-        {/* תוכן הדפים */}
         <Box p={8}>
           <Outlet />
         </Box>

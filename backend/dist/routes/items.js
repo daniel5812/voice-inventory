@@ -15,9 +15,7 @@ const router = (0, express_1.Router)();
 router.get("/", requireUser_1.requireUser, async (req, res) => {
     try {
         const items = await prisma_1.default.item.findMany({
-            where: {
-                userId: req.user.id,
-            },
+            where: { userId: req.user.id },
             orderBy: { id: "asc" },
         });
         res.json(items);
@@ -42,7 +40,7 @@ router.post("/", requireUser_1.requireUser, async (req, res) => {
             data: {
                 name,
                 quantity,
-                userId: req.user.id, // ⭐ השיוך הקריטי
+                userId: req.user.id,
             },
         });
         await prisma_1.default.movement.create({
@@ -54,6 +52,7 @@ router.post("/", requireUser_1.requireUser, async (req, res) => {
                 rawText: "manual create",
             },
         });
+        // ✅ מחזירים את הפריט החדש
         res.json(item);
     }
     catch (e) {
@@ -73,18 +72,16 @@ router.post("/:id/add", requireUser_1.requireUser, async (req, res) => {
         return res.status(400).json({ error: "invalid amount" });
     }
     try {
-        const item = await prisma_1.default.item.updateMany({
+        // 🔑 update (לא updateMany) + החזרת הפריט המעודכן
+        const updated = await prisma_1.default.item.update({
             where: {
                 id,
-                userId: req.user.id, // 🔐 מגן על פריטים של אחרים
+                userId: req.user.id,
             },
             data: {
                 quantity: { increment: amount },
             },
         });
-        if (item.count === 0) {
-            return res.status(404).json({ error: "Item not found" });
-        }
         await prisma_1.default.movement.create({
             data: {
                 itemId: id,
@@ -94,7 +91,8 @@ router.post("/:id/add", requireUser_1.requireUser, async (req, res) => {
                 rawText: `manual add ${amount}`,
             },
         });
-        res.json({ success: true });
+        // ✅ מחזירים את הפריט המעודכן
+        res.json(updated);
     }
     catch (e) {
         console.error("ADD item error:", e);
@@ -136,6 +134,7 @@ router.post("/:id/remove", requireUser_1.requireUser, async (req, res) => {
                 rawText: `manual remove ${amount}`,
             },
         });
+        // ✅ מחזירים את הפריט המעודכן
         res.json(updated);
     }
     catch (e) {
@@ -151,22 +150,24 @@ router.post("/:id/remove", requireUser_1.requireUser, async (req, res) => {
 router.delete("/:id", requireUser_1.requireUser, async (req, res) => {
     const id = Number(req.params.id);
     try {
+        // 🔑 שומרים עותק לפני מחיקה
+        const item = await prisma_1.default.item.findFirst({
+            where: { id, userId: req.user.id },
+        });
+        if (!item) {
+            return res.status(404).json({ error: "Item not found" });
+        }
         await prisma_1.default.movement.deleteMany({
             where: {
                 itemId: id,
                 userId: req.user.id,
             },
         });
-        const deleted = await prisma_1.default.item.deleteMany({
-            where: {
-                id,
-                userId: req.user.id,
-            },
+        await prisma_1.default.item.delete({
+            where: { id },
         });
-        if (deleted.count === 0) {
-            return res.status(404).json({ error: "Item not found" });
-        }
-        res.json({ success: true });
+        // ✅ מחזירים את הפריט שנמחק
+        res.json(item);
     }
     catch (e) {
         console.error("DELETE item error:", e);

@@ -12,9 +12,7 @@ const router = Router();
 router.get("/", requireUser, async (req, res) => {
   try {
     const items = await prisma.item.findMany({
-      where: {
-        userId: req.user!.id,
-      },
+      where: { userId: req.user!.id },
       orderBy: { id: "asc" },
     });
 
@@ -42,7 +40,7 @@ router.post("/", requireUser, async (req, res) => {
       data: {
         name,
         quantity,
-        userId: req.user!.id, // ⭐ השיוך הקריטי
+        userId: req.user!.id,
       },
     });
 
@@ -56,6 +54,7 @@ router.post("/", requireUser, async (req, res) => {
       },
     });
 
+    // ✅ מחזירים את הפריט החדש
     res.json(item);
   } catch (e) {
     console.error("POST /items error:", e);
@@ -77,19 +76,16 @@ router.post("/:id/add", requireUser, async (req, res) => {
   }
 
   try {
-    const item = await prisma.item.updateMany({
+    // 🔑 update (לא updateMany) + החזרת הפריט המעודכן
+    const updated = await prisma.item.update({
       where: {
         id,
-        userId: req.user!.id, // 🔐 מגן על פריטים של אחרים
+        userId: req.user!.id,
       },
       data: {
         quantity: { increment: amount },
       },
     });
-
-    if (item.count === 0) {
-      return res.status(404).json({ error: "Item not found" });
-    }
 
     await prisma.movement.create({
       data: {
@@ -101,7 +97,8 @@ router.post("/:id/add", requireUser, async (req, res) => {
       },
     });
 
-    res.json({ success: true });
+    // ✅ מחזירים את הפריט המעודכן
+    res.json(updated);
   } catch (e) {
     console.error("ADD item error:", e);
     res.status(500).json({ error: "Failed to add quantity" });
@@ -150,6 +147,7 @@ router.post("/:id/remove", requireUser, async (req, res) => {
       },
     });
 
+    // ✅ מחזירים את הפריט המעודכן
     res.json(updated);
   } catch (e) {
     console.error("REMOVE item error:", e);
@@ -166,6 +164,15 @@ router.delete("/:id", requireUser, async (req, res) => {
   const id = Number(req.params.id);
 
   try {
+    // 🔑 שומרים עותק לפני מחיקה
+    const item = await prisma.item.findFirst({
+      where: { id, userId: req.user!.id },
+    });
+
+    if (!item) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
     await prisma.movement.deleteMany({
       where: {
         itemId: id,
@@ -173,18 +180,12 @@ router.delete("/:id", requireUser, async (req, res) => {
       },
     });
 
-    const deleted = await prisma.item.deleteMany({
-      where: {
-        id,
-        userId: req.user!.id,
-      },
+    await prisma.item.delete({
+      where: { id },
     });
 
-    if (deleted.count === 0) {
-      return res.status(404).json({ error: "Item not found" });
-    }
-
-    res.json({ success: true });
+    // ✅ מחזירים את הפריט שנמחק
+    res.json(item);
   } catch (e) {
     console.error("DELETE item error:", e);
     res.status(500).json({ error: "Failed to delete item" });

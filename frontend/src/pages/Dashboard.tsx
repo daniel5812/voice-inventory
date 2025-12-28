@@ -1,74 +1,73 @@
-// -------------------------------------------------------------
-// src/pages/Dashboard.tsx  — גרסה נקייה ומתוקנת
-// -------------------------------------------------------------
+import {
+  Box,
+  SimpleGrid,
+  Stat,
+  StatLabel,
+  StatNumber,
+  Spinner,
+  Heading,
+} from "@chakra-ui/react";
 
-import { Box, Flex, Heading } from "@chakra-ui/react";
-import { useCallback, useEffect, useState } from "react";
-
-import { useRealtime } from "../hooks/useRealtime";
+import { useInventory } from "../context/InventoryContext";
 import InventoryTable from "../components/InventoryTable";
 import ActionHistory from "../components/ActionHistory";
-import KpiCard from "../components/KpiCard";
-import { getItems } from "../api/items";
 
 const Dashboard = () => {
+  const { items, movements, loading } = useInventory();
 
-  const [items, setItems] = useState<any[]>([]);
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" mt={10}>
+        <Spinner size="lg" />
+      </Box>
+    );
+  }
 
-  // ---- Load stats data ----
-  const loadItemsForStats = useCallback(async () => {
-    try {
-      const res = await getItems();
-      setItems(res.data || []);
-    } catch (e) {
-      console.error("Failed loading KPI items:", e);
-    }
-  }, []);
+  /* ---------- KPI calculations ---------- */
 
+  const totalItems = items.length;
 
-  useEffect(() => {
-    loadItemsForStats();
-  }, [loadItemsForStats]);
+  const totalQuantity = items.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
 
-  useRealtime(loadItemsForStats);
+  const lastMovement = movements[0];
 
-  // ---- KPI Calculations ----
-  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const lowStock = items.filter((i) => i.quantity < 3).length;
-  const uniqueItems = items.length;
-
-  // ---- UI ----
   return (
-    <Box p={8} maxW="1500px" mx="auto">
-      
-      {/* KPI CARDS */}
-      <Flex gap={6} mb={10} wrap="wrap">
-        <KpiCard label="סה״כ מלאי" value={totalQuantity} color="blue.600" />
-        <KpiCard label="פריטים במלאי נמוך" value={lowStock} color="red.500" />
-        <KpiCard label="מספר מוצרים" value={uniqueItems} color="purple.600" />
-      </Flex>
+    <Box p={4}>
+      {/* KPI */}
+      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
+        <Stat bg="white" p={4} borderRadius="lg" shadow="sm">
+          <StatLabel>מספר פריטים</StatLabel>
+          <StatNumber>{totalItems}</StatNumber>
+        </Stat>
 
-      {/* TITLE */}
-      <Heading mb={6} fontWeight="600" color="gray.700">
-        Dashboard
-      </Heading>
+        <Stat bg="white" p={4} borderRadius="lg" shadow="sm">
+          <StatLabel>כמות כוללת במלאי</StatLabel>
+          <StatNumber>{totalQuantity}</StatNumber>
+        </Stat>
 
-      {/* MAIN CONTENT */}
-      <Flex
-        gap={8}
-        align="flex-start"
-        direction={{ base: "column", md: "row" }}
-      >
-        {/* Inventory Table */}
-        <Box flex="2">
-          <InventoryTable />
-        </Box>
+        <Stat bg="white" p={4} borderRadius="lg" shadow="sm">
+          <StatLabel>פעולה אחרונה</StatLabel>
+          <StatNumber fontSize="md">
+            {lastMovement
+              ? `${lastMovement.type} – ${lastMovement.item.name}`
+              : "אין נתונים"}
+          </StatNumber>
+        </Stat>
+      </SimpleGrid>
 
-        {/* Activity Log */}
-        <Box flex="1">
-          <ActionHistory />
-        </Box>
-      </Flex>
+      {/* Inventory Table */}
+      <Box mb={10}>
+        <Heading size="md" mb={4}>
+          מלאי נוכחי
+        </Heading>
+        <InventoryTable />
+      </Box>
+
+      {/* Activity Log */}
+      <ActionHistory />
     </Box>
   );
 };

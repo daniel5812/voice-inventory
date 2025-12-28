@@ -9,13 +9,11 @@ const items_1 = __importDefault(require("./routes/items"));
 const movements_1 = __importDefault(require("./routes/movements"));
 const voice_1 = __importDefault(require("./routes/voice"));
 const voiceAgent_1 = __importDefault(require("./routes/voiceAgent"));
+const users_1 = __importDefault(require("./routes/users"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 const envPath = path_1.default.resolve(__dirname, "../.env");
-console.log("ENV PATH =", envPath);
 dotenv_1.default.config({ path: envPath });
-console.log("DATABASE_URL =", process.env.DATABASE_URL);
-console.log("ALL ENV KEYS =", Object.keys(process.env));
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
@@ -23,6 +21,7 @@ app.use(express_1.default.json());
 app.use("/api/items", items_1.default);
 app.use("/api/movements", movements_1.default);
 app.use("/api/voice", voice_1.default);
+app.use("/api/me", users_1.default);
 // ROOT TEST
 app.get("/", (req, res) => {
     res.send("Voice Inventory API is running");

@@ -7,6 +7,8 @@ import Dashboard from "./pages/Dashboard";
 import InventoryPage from "./pages/Inventory";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
+import Profile from "./pages/Profile";
+
 
 export default function App() {
   return (
@@ -42,6 +44,7 @@ export default function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="inventory" element={<InventoryPage />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
       </Routes>
     </BrowserRouter>
