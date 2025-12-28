@@ -46,7 +46,9 @@ const ActionHistory = () => {
             >
               <Flex justify="space-between" align="center">
                 <Text>
-                  {formatMovement(m)} — <b>{m.item.name}</b>
+                  {formatMovement(m)} —{" "}
+                  <b>{m.item?.name ?? "Unknown item"}</b>
+
                 </Text>
                 <Text fontSize="sm" color="gray.500">
                   {new Date(m.createdAt).toLocaleString()}
